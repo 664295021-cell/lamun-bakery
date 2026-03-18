@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lamun Bakery | ระบบจัดการร้าน</title>
+    
+    <!-- Google Fonts: Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        bakery: {
+                            bg: '#faf6f3',
+                            card: '#ffffff',
+                            primary: '#8b5a2b',
+                            primaryHover: '#704822',
+                            secondary: '#d2b48c',
+                            accent: '#f5deb3',
+                            text: '#4a3b32',
+                            light: '#fdfbf9'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d2b48c; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8b5a2b; }
+
+        .page-content { display: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        .page-content.active { display: block; opacity: 1; }
+
+        .modal-overlay { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); }
+        .modal-content { animation: modalIn 0.3s ease-out; }
+        @keyframes modalIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        .toast-enter { animation: slideInRight 0.3s forwards; }
+        .toast-exit { animation: slideOutRight 0.3s forwards; }
+
+        body { background-color: #faf6f3; color: #4a3b32; }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden selection:bg-bakery-secondary selection:text-white">
+
+    <!-- Mobile Header -->
+    <div class="md:hidden fixed top-0 w-full bg-bakery-primary text-white p-4 flex justify-between items-center z-50 shadow-md">
+        <div class="flex items-center gap-2 font-semibold text-lg">
+            <i class="ph-fill ph-storefront text-2xl"></i> Lamun Bakery
+        </div>
+        <button onclick="toggleSidebar()" class="p-1">
+            <i class="ph ph-list text-2xl"></i>
+        </button>
+    </div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="bg-bakery-card w-64 h-full shadow-lg flex-shrink-0 flex flex-col transition-transform transform -translate-x-full md:translate-x-0 fixed md:relative z-40 pt-16 md:pt-0">
+        <div class="p-6 hidden md:flex items-center gap-3 border-b border-bakery-bg">
+            <div class="w-10 h-10 bg-bakery-accent rounded-full flex items-center justify-center text-bakery-primary">
+                <i class="ph-fill ph-storefront text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">Lamun Bakery</h1>
+                <p class="text-xs text-gray-500">Management System</p>
+            </div>
+        </div>
+
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+            <button onclick="switchTab('pos')" id="nav-pos" class="nav-btn w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-bakery-bg text-bakery-primary bg-bakery-accent/30 font-medium transition-colors">
+                <i class="ph ph-cash-register text-xl"></i> ขายหน้าร้าน (POS)
+            </button>
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-bakery-bg text-gray-600 transition-colors">
+                <i class="ph ph-chart-pie-slice text-xl"></i> ภาพรวมกิจการ
+            </button>
+            <button onclick="switchTab('history')" id="nav-history" class="nav-btn w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-bakery-bg text-gray-600 transition-colors">
+                <i class="ph ph-receipt text-xl"></i> ประวัติการขาย
+            </button>
+            <button onclick="switchTab('inventory')" id="nav-inventory" class="nav-btn w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-bakery-bg text-gray-600 transition-colors">
+                <i class="ph ph-package text-xl"></i> สต็อกวัตถุดิบ
+            </button>
+            <button onclick="switchTab('finance')" id="nav-finance" class="nav-btn w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-bakery-bg text-gray-600 transition-colors">
+                <i class="ph ph-calculator text-xl"></i> การเงิน & ต้นทุน
+            </button>
+        </nav>
+    </aside>
+
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
+
+    <!-- Main Content -->
+    <main class="flex-1 h-full overflow-y-auto pt-16 md:pt-0 relative">
+        
+        <!-- POS Page -->
+        <section id="pos-page" class="page-content active h-full">
+            <div class="flex flex-col lg:flex-row h-full">
+                <!-- Left: Product Grid -->
+                <div class="flex-1 p-4 lg:p-6 overflow-y-auto bg-bakery-bg">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold flex items-center gap-2">
+                            <i class="ph-fill ph-coffee text-bakery-primary"></i> เมนูสินค้า
+                        </h2>
+                        <div class="relative">
+                            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" id="product-search" oninput="handleSearch(this.value)" placeholder="ค้นหาเมนู..." class="pl-10 pr-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:border-bakery-primary focus:ring-1 focus:ring-bakery-primary w-48 md:w-64 text-sm">
+                        </div>
+                    </div>
+                    <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                </div>
+
+                <!-- Right: Cart -->
+                <div class="w-full lg:w-96 bg-bakery-card shadow-[-4px_0_15px_rgba(0,0,0,0.02)] flex flex-col h-full border-l border-gray-100">
+                    <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+                        <h2 class="text-xl font-bold">ตะกร้าสินค้า</h2>
+                        <span id="cart-count-badge" class="bg-bakery-primary text-white text-xs px-2 py-1 rounded-full">0</span>
+                    </div>
+                    <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+                    <div class="p-5 border-t border-gray-100 bg-white">
+                        <div class="flex justify-between text-gray-500 mb-2 text-sm">
+                            <span>จำนวนรวม</span>
+                            <span id="cart-total-qty">0 ชิ้น</span>
+                        </div>
+                        <div class="flex justify-between items-center text-gray-500 mb-2 text-sm">
+                            <span>ส่วนลด (บาท)</span>
+                            <input type="number" id="cart-discount" value="0" min="0" oninput="updateCartUI()" class="w-20 p-1 text-right border border-gray-200 rounded focus:border-bakery-primary text-bakery-primary font-medium outline-none">
+                        </div>
+                        <div class="flex justify-between font-bold text-xl mb-4 text-bakery-primary">
+                            <span>ยอดสุทธิ</span>
+                            <span id="cart-total-price">฿0.00</span>
+                        </div>
+                        <div class="mb-4">
+                            <p class="text-xs text-gray-500 mb-2 font-medium">วิธีชำระเงิน</p>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="setPaymentMethod('cash')" id="pay-cash" class="pay-btn active border-2 border-bakery-primary bg-bakery-primary/10 text-bakery-primary rounded-lg py-2 flex flex-col items-center justify-center transition">
+                                    <i class="ph ph-money text-xl"></i><span class="text-[10px] mt-1">เงินสด</span>
+                                </button>
+                                <button onclick="setPaymentMethod('transfer')" id="pay-transfer" class="pay-btn border border-gray-200 text-gray-500 hover:bg-gray-50 rounded-lg py-2 flex flex-col items-center justify-center transition">
+                                    <i class="ph ph-qr-code text-xl"></i><span class="text-[10px] mt-1">โอนเงิน</span>
+                                </button>
+                                <button onclick="setPaymentMethod('card')" id="pay-card" class="pay-btn border border-gray-200 text-gray-500 hover:bg-gray-50 rounded-lg py-2 flex flex-col items-center justify-center transition">
+                                    <i class="ph ph-credit-card text-xl"></i><span class="text-[10px] mt-1">บัตร</span>
+                                </button>
+                            </div>
+                        </div>
+                        <button onclick="confirmOrder()" class="w-full bg-bakery-primary hover:bg-bakery-primaryHover text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-bakery-primary/30 active:scale-[0.98]">
+                            ชำระเงิน <i class="ph-bold ph-receipt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dashboard Page -->
+        <section id="dashboard-page" class="page-content p-4 md:p-8">
+            <h2 class="text-2xl font-bold mb-6">ภาพรวมกิจการ</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-bakery-card p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-2xl"><i class="ph-fill ph-wallet"></i></div>
+                    <div><p class="text-gray-500 text-sm">ยอดขายวันนี้</p><h3 class="text-2xl font-bold text-bakery-primary">฿<span id="dash-sales">0</span></h3></div>
+                </div>
+                <div class="bg-bakery-card p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl"><i class="ph-fill ph-receipt"></i></div>
+                    <div><p class="text-gray-500 text-sm">จำนวนออเดอร์</p><h3 class="text-2xl font-bold text-bakery-primary"><span id="dash-orders">0</span> บิล</h3></div>
+                </div>
+                <div class="bg-bakery-card p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-2xl"><i class="ph-fill ph-star"></i></div>
+                    <div><p class="text-gray-500 text-sm">เมนูขายดีวันนี้</p><h3 class="text-xl font-bold text-bakery-primary" id="dash-bestseller">-</h3></div>
+                </div>
+            </div>
+            <div class="bg-bakery-card p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="font-bold text-lg mb-4 text-gray-700">สรุปยอดขาย 7 วันย้อนหลัง</h3>
+                <div class="h-80 w-full relative"><canvas id="salesChart"></canvas></div>
+            </div>
+        </section>
+
+        <!-- History Page -->
+        <section id="history-page" class="page-content p-4 md:p-8">
+            <h2 class="text-2xl font-bold mb-6">ประวัติการขาย</h2>
+            <div class="bg-bakery-card rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-bakery-bg text-gray-600 text-sm uppercase">
+                                <th class="p-4 font-semibold">เลขที่บิล</th>
+                                <th class="p-4 font-semibold">เวลา</th>
+                                <th class="p-4 font-semibold">รายการ</th>
+                                <th class="p-4 font-semibold text-right">ส่วนลด</th>
+                                <th class="p-4 font-semibold text-right">ยอดรวม</th>
+                                <th class="p-4 font-semibold text-center">วิธีชำระ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Inventory Page -->
+        <section id="inventory-page" class="page-content p-4 md:p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">สต็อกวัตถุดิบ</h2>
+                <button onclick="openInventoryModal('add')" class="bg-bakery-primary text-white px-5 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-bakery-primaryHover transition-colors shadow-md">
+                    <i class="ph-bold ph-plus"></i> เพิ่มวัตถุดิบ
+                </button>
+            </div>
+            <div class="bg-bakery-card rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-bakery-bg text-gray-600 text-sm">
+                                <th class="p-4 font-semibold">รหัส</th>
+                                <th class="p-4 font-semibold">รายการ</th>
+                                <th class="p-4 font-semibold text-right">คงเหลือ</th>
+                                <th class="p-4 font-semibold">หน่วย</th>
+                                <th class="p-4 font-semibold text-center">สถานะ</th>
+                                <th class="p-4 font-semibold text-center">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Finance Page -->
+        <section id="finance-page" class="page-content p-4 md:p-8">
+            <h2 class="text-2xl font-bold mb-6">การเงิน & ต้นทุน</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-bakery-card p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="ph-fill ph-calculator text-bakery-primary"></i> คำนวณจุดคุ้มทุน</h3>
+                    <div class="space-y-4">
+                        <div><label class="block text-sm text-gray-600 mb-1">ค่าใช้จ่ายคงที่ต่อเดือน (บาท)</label><input type="number" id="calc-fixed-cost" value="15000" oninput="calculateBreakEven()" class="w-full p-3 rounded-lg border bg-gray-50 focus:border-bakery-primary outline-none"></div>
+                        <div><label class="block text-sm text-gray-600 mb-1">ราคาขายเฉลี่ยต่อชิ้น (บาท)</label><input type="number" id="calc-price" value="65" oninput="calculateBreakEven()" class="w-full p-3 rounded-lg border bg-gray-50 focus:border-bakery-primary outline-none"></div>
+                        <div><label class="block text-sm text-gray-600 mb-1">ต้นทุนวัตถุดิบเฉลี่ยต่อชิ้น (บาท)</label><input type="number" id="calc-variable-cost" value="25" oninput="calculateBreakEven()" class="w-full p-3 rounded-lg border bg-gray-50 focus:border-bakery-primary outline-none"></div>
+                    </div>
+                </div>
+                <div class="bg-bakery-primary text-white p-6 rounded-2xl shadow-lg flex flex-col justify-center items-center text-center relative overflow-hidden">
+                    <h3 class="font-medium text-bakery-accent mb-2">ต้องขายให้ได้เดือนละ</h3>
+                    <div class="text-6xl font-bold mb-2" id="calc-result-qty">0</div>
+                    <p class="text-xl mb-6">ชิ้น / เดือน</p>
+                    <div class="bg-white/10 w-full p-4 rounded-xl backdrop-blur-sm">
+                        <p class="text-sm text-bakery-accent mb-1">ยอดขายขั้นต่ำต่อเดือน</p>
+                        <p class="text-2xl font-bold" id="calc-result-revenue">฿0.00</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Custom Modals -->
+    <div id="modal-container" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal()"></div>
+        <div id="modal-content-box" class="modal-content bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden relative z-10">
+            <!-- Content dynamicly injected -->
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-20 md:top-6 right-4 z-70 flex flex-col gap-2"></div>
+
+    <script>
+        // --- Configuration ---
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx72EbLs6T6xuXJrCKhX0t_ktVzCU4OzONnQdP01Fs9iY5xUvFvyf7HbLnBwZaLvZVf/exec";
+
+        // --- State Management ---
+        const state = {
+            salesToday: 0,
+            ordersToday: 0,
+            cart: [],
+            orders: [],
+            paymentMethod: 'cash',
+            products: [
+                { id: 1, name: 'ครัวซองต์เนยสด', price: 65, category: 'เบเกอรี่', icon: '🥐', color: 'bg-orange-50', ingredients: [{id: 'INV001', amount: 0.1}, {id: 'INV002', amount: 0.05}] },
+                { id: 2, name: 'เค้กช็อกโกแลตหน้านิ่ม', price: 95, category: 'เบเกอรี่', icon: '🍰', color: 'bg-amber-50', ingredients: [{id: 'INV001', amount: 0.2}, {id: 'INV003', amount: 0.1}] },
+                { id: 3, name: 'ทาร์ตไข่สไตล์มาเก๊า', price: 35, category: 'เบเกอรี่', icon: '🥧', color: 'bg-yellow-50', ingredients: [{id: 'INV001', amount: 0.05}] },
+                { id: 4, name: 'สตรอว์เบอร์รี่ชอร์ตเค้ก', price: 110, category: 'เบเกอรี่', icon: '🍓', color: 'bg-red-50', ingredients: [{id: 'INV001', amount: 0.15}] },
+                { id: 5, name: 'อเมริกาโน่ (เย็น)', price: 55, category: 'เครื่องดื่ม', icon: '🥤', color: 'bg-stone-50', ingredients: [{id: 'INV004', amount: 0.02}] },
+                { id: 6, name: 'คาเฟ่ลาเต้ (ร้อน)', price: 60, category: 'เครื่องดื่ม', icon: '☕', color: 'bg-stone-50', ingredients: [{id: 'INV004', amount: 0.02}, {id: 'INV006', amount: 0.1}] },
+                { id: 7, name: 'มัทฉะลาเต้พรีเมียม', price: 85, category: 'เครื่องดื่ม', icon: '🍵', color: 'bg-green-50', ingredients: [{id: 'INV005', amount: 0.01}, {id: 'INV006', amount: 0.1}] },
+                { id: 8, name: 'ชานมไข่มุก', price: 50, category: 'เครื่องดื่ม', icon: '🧋', color: 'bg-orange-50', ingredients: [{id: 'INV003', amount: 0.05}] },
+            ],
+            inventory: [
+                { id: 'INV001', name: 'แป้งสาลี', qty: 45, unit: 'kg' },
+                { id: 'INV002', name: 'เนยสดแท้', qty: 4, unit: 'kg' },
+                { id: 'INV003', name: 'น้ำตาลทราย', qty: 20, unit: 'kg' },
+                { id: 'INV004', name: 'เมล็ดกาแฟ', qty: 2.5, unit: 'kg' },
+                { id: 'INV005', name: 'ผงมัทฉะ', qty: 0.5, unit: 'kg' },
+                { id: 'INV006', name: 'นมสด', qty: 15, unit: 'แกลลอน' },
+            ],
+            chartData: [1500, 2100, 1800, 2500, 2200, 3100, 0]
+        };
+
+        let salesChartInstance = null;
+
+        window.onload = () => {
+            renderProducts(state.products);
+            renderInventory();
+            renderHistory();
+            initChart();
+            calculateBreakEven();
+            updateDashboardUI();
+        };
+
+        // --- Navigation ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+            document.getElementById(`${tabId}-page`).classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('text-bakery-primary', 'bg-bakery-accent/30', 'font-medium');
+                b.classList.add('text-gray-600');
+            });
+            const btn = document.getElementById(`nav-${tabId}`);
+            btn.classList.add('text-bakery-primary', 'bg-bakery-accent/30', 'font-medium');
+            if(window.innerWidth < 768) toggleSidebar();
+        }
+
+        function toggleSidebar() {
+            const s = document.getElementById('sidebar');
+            const o = document.getElementById('sidebar-overlay');
+            s.classList.toggle('-translate-x-full');
+            o.classList.toggle('hidden');
+        }
+
+        // --- Modal Control ---
+        function openModal(html) {
+            const modal = document.getElementById('modal-container');
+            const box = document.getElementById('modal-content-box');
+            box.innerHTML = html;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+
+        // --- POS Logic ---
+        function formatPrice(n) { return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+        function renderProducts(products) {
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
+            products.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'bg-bakery-card rounded-2xl p-3 shadow-sm hover:shadow-md cursor-pointer border border-transparent hover:border-bakery-secondary transition-all active:scale-95';
+                div.onclick = () => addToCart(p);
+                div.innerHTML = `
+                    <div class="w-full aspect-square rounded-xl mb-3 flex items-center justify-center text-5xl ${p.color}">${p.icon}</div>
+                    <div class="text-[10px] text-gray-400 mb-1 font-medium">${p.category}</div>
+                    <h3 class="font-medium text-sm text-gray-800 line-clamp-1">${p.name}</h3>
+                    <p class="font-bold text-bakery-primary mt-1">฿${p.price}</p>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function handleSearch(val) {
+            const filtered = state.products.filter(p => p.name.includes(val) || p.category.includes(val));
+            renderProducts(filtered);
+        }
+
+        function addToCart(p) {
+            const item = state.cart.find(i => i.id === p.id);
+            if(item) item.qty++; else state.cart.push({...p, qty: 1});
+            updateCartUI();
+        }
+
+        function updateCartQty(id, d) {
+            const idx = state.cart.findIndex(i => i.id === id);
+            if(idx > -1) {
+                state.cart[idx].qty += d;
+                if(state.cart[idx].qty <= 0) state.cart.splice(idx, 1);
+            }
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const container = document.getElementById('cart-items');
+            container.innerHTML = '';
+            let tQty = 0, tPrice = 0;
+            state.cart.forEach(i => {
+                tQty += i.qty; tPrice += i.price * i.qty;
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-3 bg-gray-50 p-2 rounded-xl';
+                div.innerHTML = `
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center ${i.color}">${i.icon}</div>
+                    <div class="flex-1 min-w-0"><h4 class="text-xs font-medium truncate">${i.name}</h4><p class="text-bakery-primary text-xs font-bold">฿${i.price}</p></div>
+                    <div class="flex items-center gap-2 bg-white rounded-lg border p-1">
+                        <button onclick="updateCartQty(${i.id}, -1)" class="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded text-gray-400"><i class="ph ph-minus text-xs"></i></button>
+                        <span class="text-xs font-semibold w-4 text-center">${i.qty}</span>
+                        <button onclick="updateCartQty(${i.id}, 1)" class="w-6 h-6 flex items-center justify-center hover:bg-bakery-accent rounded text-bakery-primary"><i class="ph ph-plus text-xs"></i></button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            const disc = parseFloat(document.getElementById('cart-discount').value) || 0;
+            const net = Math.max(0, tPrice - disc);
+            document.getElementById('cart-count-badge').innerText = tQty;
+            document.getElementById('cart-total-qty').innerText = tQty + ' ชิ้น';
+            document.getElementById('cart-total-price').innerText = '฿' + formatPrice(net);
+        }
+
+        function setPaymentMethod(m) {
+            state.paymentMethod = m;
+            document.querySelectorAll('.pay-btn').forEach(b => {
+                b.className = 'pay-btn border border-gray-200 text-gray-500 hover:bg-gray-50 rounded-lg py-2 flex flex-col items-center justify-center transition';
+            });
+            document.getElementById(`pay-${m}`).className = 'pay-btn active border-2 border-bakery-primary bg-bakery-primary/10 text-bakery-primary rounded-lg py-2 flex flex-col items-center justify-center transition';
+        }
+
+        function confirmOrder() {
+            if(state.cart.length === 0) return showToast('กรุณาเลือกสินค้าก่อน', 'warning');
+            
+            const sub = state.cart.reduce((s, i) => s + (i.price * i.qty), 0);
+            const disc = parseFloat(document.getElementById('cart-discount').value) || 0;
+            const net = Math.max(0, sub - disc);
+            const payText = state.paymentMethod === 'cash' ? 'เงินสด' : state.paymentMethod === 'transfer' ? 'โอนเงิน' : 'บัตรเครดิต';
+
+            openModal(`
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-6">
+                        <h2 class="text-xl font-bold">ยืนยันการชำระเงิน</h2>
+                        <button onclick="closeModal()" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button>
+                    </div>
+                    <div class="bg-bakery-bg p-4 rounded-2xl mb-6 space-y-2">
+                        <div class="flex justify-between text-sm"><span>ยอดรวมสินค้า</span><span>฿${formatPrice(sub)}</span></div>
+                        <div class="flex justify-between text-sm text-red-500"><span>ส่วนลด</span><span>-฿${formatPrice(disc)}</span></div>
+                        <hr class="border-dashed border-gray-300 my-2">
+                        <div class="flex justify-between font-bold text-lg text-bakery-primary"><span>ยอดชำระสุทธิ</span><span>฿${formatPrice(net)}</span></div>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 border border-bakery-secondary bg-bakery-accent/20 rounded-xl mb-6">
+                        <i class="ph-fill ph-check-circle text-bakery-primary text-xl"></i>
+                        <div><p class="text-xs text-gray-500">ช่องทางชำระเงิน</p><p class="text-sm font-bold text-bakery-primary">${payText}</p></div>
+                    </div>
+                    <button id="confirm-pay-btn" onclick="processCheckout(${sub}, ${disc}, ${net})" class="w-full bg-bakery-primary text-white py-3 rounded-2xl font-bold text-lg hover:bg-bakery-primaryHover transition-all shadow-lg shadow-bakery-primary/30">
+                        ยืนยันและบันทึกข้อมูล
+                    </button>
+                </div>
+            `);
+        }
+
+        async function syncToSheet(payload) {
+            try {
+                // ส่งข้อมูลไปยัง Web App URL
+                await fetch(WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+                console.log("Cloud Sync: Success");
+            } catch (err) {
+                console.error("Cloud Sync: Error", err);
+            }
+        }
+
+        async function processCheckout(sub, disc, total) {
+            const btn = document.getElementById('confirm-pay-btn');
+            if(btn) { btn.disabled = true; btn.innerText = "กำลังบันทึก..."; }
+
+            // Inventory Check
+            let canSell = true;
+            state.cart.forEach(cartItem => {
+                cartItem.ingredients?.forEach(ing => {
+                    const stock = state.inventory.find(s => s.id === ing.id);
+                    if(stock && stock.qty < (ing.amount * cartItem.qty)) {
+                        canSell = false;
+                        showToast(`วัตถุดิบ ${stock.name} ไม่เพียงพอ`, 'warning');
+                    }
+                });
+            });
+            if(!canSell) { closeModal(); return; }
+
+            // Deduct Stock & Prepare Inventory Update
+            let inventoryUpdateList = [];
+            state.cart.forEach(cartItem => {
+                cartItem.ingredients?.forEach(ing => {
+                    const stock = state.inventory.find(s => s.id === ing.id);
+                    if(stock) {
+                        stock.qty -= (ing.amount * cartItem.qty);
+                        inventoryUpdateList.push({ id: stock.id, qty: stock.qty });
+                    }
+                });
+            });
+
+            // Prepare Order Data
+            const orderId = 'ORD' + Date.now().toString().slice(-4);
+            const itemsString = state.cart.map(i => `${i.name} x${i.qty}`).join(', ');
+            const paymentType = state.paymentMethod === 'cash' ? 'เงินสด' : state.paymentMethod === 'transfer' ? 'โอนเงิน' : 'บัตร';
+
+            const newOrder = {
+                id: orderId,
+                time: new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+                items: itemsString,
+                subtotal: sub,
+                discount: disc,
+                total: total,
+                payment: paymentType
+            };
+
+            // Sync to Google Sheets
+            await syncToSheet({ type: "SAVE_ORDER", order: newOrder });
+            if(inventoryUpdateList.length > 0) {
+                await syncToSheet({ type: "UPDATE_INVENTORY", items: inventoryUpdateList });
+            }
+
+            // Update Local State
+            state.orders.unshift(newOrder);
+            state.salesToday += total;
+            state.ordersToday += 1;
+            state.chartData[6] += total;
+            
+            const best = state.cart.reduce((a, b) => a.qty > b.qty ? a : b);
+            document.getElementById('dash-bestseller').innerText = best.name;
+
+            state.cart = [];
+            document.getElementById('cart-discount').value = 0;
+            
+            closeModal();
+            updateCartUI();
+            updateDashboardUI();
+            renderInventory();
+            renderHistory();
+            updateChart();
+            showToast('บันทึกออเดอร์และลง Sheet สำเร็จ', 'success');
+        }
+
+        // --- Inventory Modal ---
+        function openInventoryModal(mode, id = null) {
+            let item = { name: '', qty: '', unit: 'kg' };
+            let title = 'เพิ่มวัตถุดิบใหม่';
+            let btnText = 'เพิ่มรายการ';
+            
+            if(mode === 'edit' && id) {
+                item = state.inventory.find(x => x.id === id);
+                title = 'แก้ไขสต็อก';
+                btnText = 'บันทึกการเปลี่ยนแปลง';
+            }
+
+            openModal(`
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold">${title}</h2>
+                        <button onclick="closeModal()" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button>
+                    </div>
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">ชื่อวัตถุดิบ</label>
+                            <input type="text" id="inv-name" value="${item.name}" ${mode==='edit'?'disabled':''} class="w-full p-3 rounded-xl border bg-gray-50 focus:border-bakery-primary outline-none disabled:opacity-50" placeholder="ระบุชื่อ...">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">จำนวนคงเหลือ</label>
+                                <input type="number" id="inv-qty" value="${item.qty}" class="w-full p-3 rounded-xl border bg-gray-50 focus:border-bakery-primary outline-none" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">หน่วยเรียก</label>
+                                <input type="text" id="inv-unit" value="${item.unit}" class="w-full p-3 rounded-xl border bg-gray-50 focus:border-bakery-primary outline-none" placeholder="kg, กรัม, ชิ้น...">
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="saveInventory('${mode}', '${id}')" class="w-full bg-bakery-primary text-white py-3 rounded-2xl font-bold hover:bg-bakery-primaryHover transition-all">
+                        ${btnText}
+                    </button>
+                </div>
+            `);
+        }
+
+        async function saveInventory(mode, id) {
+            const name = document.getElementById('inv-name').value;
+            const qty = parseFloat(document.getElementById('inv-qty').value);
+            const unit = document.getElementById('inv-unit').value;
+
+            if(!name || isNaN(qty)) return showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
+
+            if(mode === 'add') {
+                const newId = 'INV' + (state.inventory.length + 1).toString().padStart(3, '0');
+                state.inventory.push({ id: newId, name, qty, unit });
+                showToast('เพิ่มวัตถุดิบสำเร็จ');
+            } else {
+                const item = state.inventory.find(x => x.id === id);
+                item.qty = qty;
+                item.unit = unit;
+                await syncToSheet({ type: "UPDATE_INVENTORY", items: [{ id: id, qty: qty }] });
+                showToast('อัปเดตสต็อกเรียบร้อย');
+            }
+
+            renderInventory();
+            closeModal();
+        }
+
+        // --- Data Rendering ---
+        function renderHistory() {
+            const b = document.getElementById('history-table-body');
+            b.innerHTML = state.orders.length ? '' : '<tr><td colspan="6" class="p-10 text-center text-gray-400">ยังไม่มีข้อมูล</td></tr>';
+            state.orders.forEach(o => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="p-4 text-sm font-medium">${o.id}</td><td class="p-4 text-sm">${o.time}</td><td class="p-4 text-xs max-w-xs truncate">${o.items}</td><td class="p-4 text-right text-red-500">-฿${o.discount}</td><td class="p-4 text-right font-bold">฿${formatPrice(o.total)}</td><td class="p-4 text-center"><span class="px-2 py-1 rounded-full text-[10px] bg-bakery-accent text-bakery-primary">${o.payment}</span></td>`;
+                b.appendChild(tr);
+            });
+        }
+
+        function renderInventory() {
+            const b = document.getElementById('inventory-table-body');
+            b.innerHTML = '';
+            state.inventory.forEach(i => {
+                let sClass = 'bg-green-100 text-green-700', sTxt = 'ปกติ';
+                if(i.qty <= 2) { sClass='bg-red-100 text-red-700'; sTxt='ใกล้หมด'; }
+                else if(i.qty <= 5) { sClass='bg-yellow-100 text-yellow-700'; sTxt='ปานกลาง'; }
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="p-4 text-xs text-gray-400">${i.id}</td><td class="p-4 font-medium text-sm">${i.name}</td><td class="p-4 text-right font-bold text-sm">${i.qty.toFixed(2)}</td><td class="p-4 text-xs text-gray-400">${i.unit}</td><td class="p-4 text-center"><span class="px-2 py-1 rounded-full text-[10px] ${sClass}">${sTxt}</span></td><td class="p-4 text-center"><button onclick="openInventoryModal('edit', '${i.id}')" class="text-bakery-primary hover:bg-bakery-accent p-2 rounded-lg transition-colors"><i class="ph-bold ph-pencil-simple"></i></button></td>`;
+                b.appendChild(tr);
+            });
+        }
+
+        function updateDashboardUI() {
+            document.getElementById('dash-sales').innerText = formatPrice(state.salesToday);
+            document.getElementById('dash-orders').innerText = state.ordersToday;
+        }
+
+        function calculateBreakEven() {
+            const fc = parseFloat(document.getElementById('calc-fixed-cost').value) || 0;
+            const p = parseFloat(document.getElementById('calc-price').value) || 0;
+            const vc = parseFloat(document.getElementById('calc-variable-cost').value) || 0;
+            const margin = p - vc;
+            const qty = margin > 0 ? Math.ceil(fc / margin) : 0;
+            document.getElementById('calc-result-qty').innerText = qty.toLocaleString();
+            document.getElementById('calc-result-revenue').innerText = '฿' + formatPrice(qty * p);
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            salesChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์', 'อาทิตย์'],
+                    datasets: [{ label: 'ยอดขาย', data: state.chartData, backgroundColor: '#d2b48c', borderRadius: 8, barThickness: 24 }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function updateChart() { if(salesChartInstance) { salesChartInstance.data.datasets[0].data = state.chartData; salesChartInstance.update(); } }
+
+        function showToast(m, t='success') {
+            const c = document.getElementById('toast-container');
+            const d = document.createElement('div');
+            const icon = t === 'success' ? '<i class="ph-fill ph-check-circle text-green-500 text-xl"></i>' : '<i class="ph-fill ph-warning-circle text-orange-500 text-xl"></i>';
+            d.className = `p-4 pr-6 rounded-2xl shadow-xl toast-enter bg-white flex items-center gap-3 border border-gray-100 min-w-[200px]`;
+            d.innerHTML = `${icon} <span class="text-sm font-semibold text-gray-700">${m}</span>`;
+            c.appendChild(d);
+            setTimeout(() => { d.classList.add('toast-exit'); setTimeout(() => d.remove(), 300); }, 3000);
+        }
+    </script>
+</body>
+</html>
