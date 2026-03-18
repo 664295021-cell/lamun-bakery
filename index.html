@@ -282,7 +282,14 @@
                 { id: 7, name: 'มัทฉะลาเต้พรีเมียม', price: 85, category: 'เครื่องดื่ม', icon: '🍵', color: 'bg-green-50', ingredients: [{id: 'INV005', amount: 0.01}, {id: 'INV006', amount: 0.1}] },
                 { id: 8, name: 'ชานมไข่มุก', price: 50, category: 'เครื่องดื่ม', icon: '🧋', color: 'bg-orange-50', ingredients: [{id: 'INV003', amount: 0.05}] },
             ],
-            inventory: [], // ปรับให้ว่าง เพื่อรอรับข้อมูลจาก Google Sheets
+            inventory: [
+                { id: 'INV001', name: 'แป้งสาลี', qty: 45, unit: 'kg' },
+                { id: 'INV002', name: 'เนยสดแท้', qty: 4, unit: 'kg' },
+                { id: 'INV003', name: 'น้ำตาลทราย', qty: 20, unit: 'kg' },
+                { id: 'INV004', name: 'เมล็ดกาแฟ', qty: 2.5, unit: 'kg' },
+                { id: 'INV005', name: 'ผงมัทฉะ', qty: 0.5, unit: 'kg' },
+                { id: 'INV006', name: 'นมสด', qty: 15, unit: 'แกลลอน' },
+            ],
             chartData: [1500, 2100, 1800, 2500, 2200, 3100, 0]
         };
 
@@ -295,33 +302,7 @@
             initChart();
             calculateBreakEven();
             updateDashboardUI();
-            
-            // สั่งให้ดึงข้อมูลจากเน็ตตอนเปิดเว็บ
-            loadInitialData(); 
         };
-
-        // --- Data Fetching ---
-        async function loadInitialData() {
-            try {
-                showToast('กำลังโหลดข้อมูลสต็อก...', 'success'); 
-                
-                const response = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ type: 'GET_DATA' })
-                });
-                
-                const result = await response.json();
-                
-                if(result.status === 'success') {
-                    state.inventory = result.data.inventory; 
-                    renderInventory(); 
-                    showToast('โหลดข้อมูลสต็อกสำเร็จ!');
-                }
-            } catch (error) {
-                console.error("Error loading data:", error);
-                showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'warning');
-            }
-        }
 
         // --- Navigation ---
         function switchTab(tabId) {
@@ -593,18 +574,20 @@
             if(!name || isNaN(qty)) return showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
 
             if(mode === 'add') {
-                // อัปเดตการทำงานให้ส่งขึ้น Google Sheets ด้วย
                 const newId = 'INV' + (state.inventory.length + 1).toString().padStart(3, '0');
                 const newItem = { id: newId, name, qty, unit };
-                state.inventory.push(newItem);
                 
+                // --- เพิ่มคำสั่งส่งข้อมูลไป Google Sheets ตรงนี้ ---
                 await syncToSheet({ type: "ADD_INVENTORY", item: newItem });
+                
+                state.inventory.push(newItem);
                 showToast('เพิ่มวัตถุดิบสำเร็จ');
             } else {
                 const item = state.inventory.find(x => x.id === id);
                 item.qty = qty;
                 item.unit = unit;
-                await syncToSheet({ type: "UPDATE_INVENTORY", items: [{ id: id, qty: qty }] });
+                
+                await syncToSheet({ type: "UPDATE_INVENTORY", items: [{ id: id, qty: qty, unit: unit }] });
                 showToast('อัปเดตสต็อกเรียบร้อย');
             }
 
